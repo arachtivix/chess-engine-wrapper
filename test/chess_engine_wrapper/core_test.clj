@@ -36,11 +36,38 @@
       (is (= 20 (count result)) "Should return 20 legal moves from start position")
       (is (every? string? result) "All moves should be strings"))))
 
-(deftest test-get-next-positions-18-moves
-  (testing "Getting next positions from a position with 18 legal moves"
-    ;; Position with pawn on a3, blocking double move from a2
-    ;; This gives: a3->a4 (1) + b2-h2 single/double moves (14) + b1 knight to c3 (1) + g1 knight to f3/h3 (2) = 18 moves
-    (let [fen-18 "rnbqkbnr/pppppppp/8/8/8/P7/1PPPPPPP/RNBQKBNR w KQkq - 0 1"
-          result (core/get-next-positions fen-18)]
-      (is (= 18 (count result)) "Position should have 18 legal moves")
-      (is (every? string? result) "All results should be strings"))))
+(deftest test-get-next-positions-standard-starting-position
+  (testing "Getting next positions from standard starting position with all 20 specific FENs"
+    (let [start-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+          result (core/get-next-positions start-fen)
+          ;; All 20 possible positions after one move from starting position
+          expected-positions #{
+            ;; Pawn moves (one square forward)
+            "rnbqkbnr/pppppppp/8/8/8/P7/1PPPPPPP/RNBQKBNR b KQkq - 0 1"  ; a3
+            "rnbqkbnr/pppppppp/8/8/8/1P6/P1PPPPPP/RNBQKBNR b KQkq - 0 1"  ; b3
+            "rnbqkbnr/pppppppp/8/8/8/2P5/PP1PPPPP/RNBQKBNR b KQkq - 0 1"  ; c3
+            "rnbqkbnr/pppppppp/8/8/8/3P4/PPP1PPPP/RNBQKBNR b KQkq - 0 1"  ; d3
+            "rnbqkbnr/pppppppp/8/8/8/4P3/PPPP1PPP/RNBQKBNR b KQkq - 0 1"  ; e3
+            "rnbqkbnr/pppppppp/8/8/8/5P2/PPPPP1PP/RNBQKBNR b KQkq - 0 1"  ; f3
+            "rnbqkbnr/pppppppp/8/8/8/6P1/PPPPPP1P/RNBQKBNR b KQkq - 0 1"  ; g3
+            "rnbqkbnr/pppppppp/8/8/8/7P/PPPPPPP1/RNBQKBNR b KQkq - 0 1"  ; h3
+            ;; Pawn moves (two squares forward)
+            "rnbqkbnr/pppppppp/8/8/P7/8/1PPPPPPP/RNBQKBNR b KQkq a3 0 1"  ; a4
+            "rnbqkbnr/pppppppp/8/8/1P6/8/P1PPPPPP/RNBQKBNR b KQkq b3 0 1"  ; b4
+            "rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq c3 0 1"  ; c4
+            "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1"  ; d4
+            "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"  ; e4
+            "rnbqkbnr/pppppppp/8/8/5P2/8/PPPPP1PP/RNBQKBNR b KQkq f3 0 1"  ; f4
+            "rnbqkbnr/pppppppp/8/8/6P1/8/PPPPPP1P/RNBQKBNR b KQkq g3 0 1"  ; g4
+            "rnbqkbnr/pppppppp/8/8/7P/8/PPPPPPP1/RNBQKBNR b KQkq h3 0 1"  ; h4
+            ;; Knight moves
+            "rnbqkbnr/pppppppp/8/8/8/N7/PPPPPPPP/R1BQKBNR b KQkq - 1 1"   ; Na3
+            "rnbqkbnr/pppppppp/8/8/8/2N5/PPPPPPPP/R1BQKBNR b KQkq - 1 1"   ; Nc3
+            "rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 1 1"   ; Nf3
+            "rnbqkbnr/pppppppp/8/8/8/7N/PPPPPPPP/RNBQKB1R b KQkq - 1 1"}] ; Nh3
+      (is (= 20 (count result)) "Starting position should have 20 legal moves")
+      (is (every? string? result) "All results should be strings")
+      ;; Assert each expected position is in the result
+      (doseq [expected expected-positions]
+        (is (contains? (set result) expected) 
+            (str "Result should contain position: " expected))))))

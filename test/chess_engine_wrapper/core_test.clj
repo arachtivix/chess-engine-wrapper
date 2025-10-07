@@ -35,3 +35,12 @@
                      (uci/get-legal-moves engine)))]
       (is (= 20 (count result)) "Should return 20 legal moves from start position")
       (is (every? string? result) "All moves should be strings"))))
+
+(deftest test-get-next-positions-18-moves
+  (testing "Getting next positions from a position with 18 legal moves"
+    ;; Position with pawns on a3 and b3, blocking double moves from a2 and b2
+    ;; This gives: a3->a4 (1) + b3->b4 (1) + c2-h2 single/double moves (12) + 2 knights (4) = 18 moves
+    (let [fen-18 "rnbqkbnr/pppppppp/8/8/8/PP6/2PPPPPP/RNBQKBNR w KQkq - 0 1"
+          result (core/get-next-positions fen-18)]
+      (is (= 18 (count result)) "Position should have 18 legal moves")
+      (is (every? string? result) "All results should be strings"))))

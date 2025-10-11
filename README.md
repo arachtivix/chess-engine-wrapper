@@ -5,6 +5,7 @@ A Clojure library that wraps UCI (Universal Chess Interface) standard chess engi
 ## Features
 
 - Get all valid FEN positions reachable from a given position in one move
+- Evaluate chess positions with configurable time limits
 - UCI engine communication abstraction
 - Default Stockfish integration with support for other UCI engines
 - Simple, functional API
@@ -53,6 +54,12 @@ Add the following dependency to your `deps.edn`:
 
 ;; Returns a vector of 20 FEN strings (one for each legal opening move)
 (count next-positions) ;=> 20
+
+;; Evaluate a position with a 1000ms time limit
+(def evaluation (chess/get-position-value starting-fen 1000))
+;=> {:score-cp 38, :best-move "e2e4"}
+;; score-cp is in centipawns (100 = 1 pawn advantage for white)
+;; Positive scores favor white, negative scores favor black
 ```
 
 ### Using a Different Engine
@@ -122,6 +129,32 @@ Execute a function with an initialized engine. The function receives the engine 
 
 **Returns:**
 The result of calling function `f`
+
+### `get-position-value`
+
+```clojure
+(get-position-value fen movetime-ms)
+(get-position-value fen movetime-ms engine-path)
+```
+
+Get the evaluation of a chess position given in FEN notation.
+
+**Parameters:**
+- `fen`: A chess position in FEN notation
+- `movetime-ms`: Time limit for computation in milliseconds
+- `engine-path`: (optional) Path to UCI engine executable (defaults to "stockfish")
+
+**Returns:**
+A map with `:score-cp` (centipawn score from white's perspective) and `:best-move`.
+- A positive score favors white, negative favors black
+- Score is in centipawns (100 = 1 pawn advantage)
+- Returns nil if no evaluation is available
+
+**Example:**
+```clojure
+(get-position-value "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" 1000)
+;=> {:score-cp 38, :best-move "e2e4"}
+```
 
 ## Development
 

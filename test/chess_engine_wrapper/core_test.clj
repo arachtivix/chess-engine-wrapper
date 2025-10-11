@@ -71,3 +71,29 @@
       (doseq [expected expected-positions]
         (is (contains? (set result) expected) 
             (str "Result should contain position: " expected))))))
+
+(deftest test-get-position-value-startpos
+  (testing "Getting position value from starting position"
+    (let [start-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+          result (core/get-position-value start-fen 1000)]
+      (is (some? result) "Should return a result")
+      (is (number? (:score-cp result)) "Should return a centipawn score")
+      (is (string? (:best-move result)) "Should return a best move")
+      (is (re-matches #"[a-h][1-8][a-h][1-8][qrbn]?" (:best-move result))
+          "Best move should be in UCI format"))))
+
+(deftest test-get-position-value-favorable-position
+  (testing "Getting position value from a position favorable to white"
+    ;; Position after 1.e4 e5 2.Nf3 Nc6 3.Bb5 (Ruy Lopez)
+    (let [ruy-lopez-fen "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3"
+          result (core/get-position-value ruy-lopez-fen 1000)]
+      (is (some? result) "Should return a result")
+      (is (number? (:score-cp result)) "Should return a centipawn score")
+      (is (string? (:best-move result)) "Should return a best move"))))
+
+(deftest test-get-position-value-with-custom-engine
+  (testing "Getting position value with custom engine path"
+    (let [start-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+          result (core/get-position-value start-fen 1000 "stockfish")]
+      (is (some? result) "Should return a result")
+      (is (number? (:score-cp result)) "Should return a centipawn score"))))

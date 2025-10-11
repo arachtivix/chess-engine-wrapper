@@ -172,6 +172,22 @@ The SVG uses CSS classes for styling, making it easy to change colors:
 .chess-piece { fill: #000; }     /* Chess piece color */
 ```
 
+#### Running Display Examples
+
+Generate example HTML files demonstrating all display features:
+
+```bash
+clojure -M -m example-display
+```
+
+This creates six HTML files:
+- `example-chess.html` - 8×8 standard chess board
+- `example-checkers.html` - 10×10 checkers board
+- `example-custom-colors.html` - 5×5 board with custom colors
+- `example-standard-position.html` - Board with standard chess starting position
+- `example-custom-pieces.html` - Board with custom piece placement
+- `example-fen-position.html` - Board showing a position from FEN notation
+
 ### Using a Different Engine
 
 ```clojure

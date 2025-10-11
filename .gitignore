@@ -7,3 +7,5 @@ target/
 .DS_Store
 pom.xml
 pom.xml.asc
+example*.html
+linux-install.sh

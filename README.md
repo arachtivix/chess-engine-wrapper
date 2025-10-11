@@ -35,7 +35,13 @@ Download from [Stockfish official website](https://stockfishchess.org/download/)
 
 ### Adding to your project
 
-Add the following dependency to your `deps.edn`:
+Download the latest JAR from the [releases page](https://github.com/arachtivix/chess-engine-wrapper/releases) and add it to your `deps.edn`:
+
+```clojure
+{:deps {io.github.arachtivix/chess-engine-wrapper {:local/root "/path/to/chess-engine-wrapper-VERSION.jar"}}}
+```
+
+Or use a local checkout:
 
 ```clojure
 {:deps {chess-engine-wrapper {:local/root "/path/to/chess-engine-wrapper"}}}
@@ -166,7 +172,33 @@ clojure -M:test
 
 ### Building
 
-This is a library project, so there's no build step required. Simply include it in your project's dependencies.
+To build a JAR file:
+
+```bash
+clojure -T:build jar
+```
+
+The JAR will be created in the `target/` directory.
+
+To increment the version:
+
+```bash
+clojure -T:build increment-patch
+```
+
+To check the current version:
+
+```bash
+clojure -T:build get-version
+```
+
+### Release Process
+
+Releases are automated via GitHub Actions. When code is pushed to the `main` branch:
+1. Tests are run
+2. If tests pass, the patch version is automatically incremented
+3. A JAR is built
+4. A GitHub release is created with the JAR as a downloadable artifact
 
 ## FEN Notation
 

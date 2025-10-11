@@ -1,0 +1,112 @@
+name: Create Release
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Install Stockfish
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y stockfish
+    
+    - name: Install Clojure
+      uses: DeLaGuardo/setup-clojure@12.5
+      with:
+        cli: 1.11.1.1429
+    
+    - name: Cache Clojure dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.m2/repository
+          ~/.gitlibs
+        key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+        restore-keys: |
+          ${{ runner.os }}-clojure-
+    
+    - name: Run tests
+      run: clojure -M:test
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Install Clojure
+      uses: DeLaGuardo/setup-clojure@12.5
+      with:
+        cli: 1.11.1.1429
+    
+    - name: Cache Clojure dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.m2/repository
+          ~/.gitlibs
+        key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+        restore-keys: |
+          ${{ runner.os }}-clojure-
+    
+    - name: Increment version
+      id: version
+      run: |
+        clojure -T:build increment-patch
+        VERSION=$(clojure -T:build get-version | tail -1)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+    
+    - name: Build JAR
+      run: clojure -T:build jar
+    
+    - name: Commit version bump
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add version.edn
+        git commit -m "Bump version to ${{ steps.version.outputs.version }}" || echo "No version changes to commit"
+        git push || echo "No changes to push"
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ steps.version.outputs.version }}
+        name: Release v${{ steps.version.outputs.version }}
+        body: |
+          Automated release of chess-engine-wrapper v${{ steps.version.outputs.version }}
+          
+          ## Installation
+          
+          Download the JAR file and include it in your project's classpath, or add it to your `deps.edn`:
+          
+          ```clojure
+          {:deps {io.github.arachtivix/chess-engine-wrapper 
+                  {:local/root "/path/to/chess-engine-wrapper-${{ steps.version.outputs.version }}.jar"}}}
+          ```
+          
+          ## Changes
+          
+          This release includes all changes from the latest commit to main.
+        files: |
+          target/chess-engine-wrapper-${{ steps.version.outputs.version }}.jar
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

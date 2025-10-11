@@ -5,4 +5,6 @@
                                                                        :git/sha "dfb30dd"}}
                   :main-opts ["-m" "cognitect.test-runner"]
                   :exec-fn cognitect.test-runner.api/test}
-           :run-m {:main-opts ["-m" "chess-engine-wrapper.core"]}}}
+           :run-m {:main-opts ["-m" "chess-engine-wrapper.core"]}
+           :build {:deps {io.github.clojure/tools.build {:git/tag "v0.9.6" :git/sha "8e78bcc"}}
+                   :ns-default build}}}

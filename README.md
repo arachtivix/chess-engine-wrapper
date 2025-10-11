@@ -4,17 +4,29 @@ A Clojure library that wraps UCI (Universal Chess Interface) standard chess engi
 
 ## Features
 
+### Chess Engine Features
 - Get all valid FEN positions reachable from a given position in one move
 - Evaluate chess positions with configurable time limits
 - UCI engine communication abstraction
 - Default Stockfish integration with support for other UCI engines
+
+### Display Features
+- Generate SVG checkerboards of any width × height dimensions
+- Place chess pieces on boards using Unicode symbols
+- Convert FEN notation to piece positions
+- Calculate average material value from FEN positions
+- Fully responsive SVG output with CSS-based color theming
+- Generate complete HTML pages with embedded boards
+
+### General
 - Simple, functional API
+- Pure Clojure implementation
 
 ## Requirements
 
 - Java 8 or higher
 - Clojure 1.11.1 or higher
-- A UCI-compliant chess engine (Stockfish recommended)
+- A UCI-compliant chess engine (Stockfish recommended) - only needed for engine features
 
 ## Installation
 
@@ -60,7 +72,9 @@ Alternatively, you can use a local checkout:
 
 ## Usage
 
-### Basic Usage
+### Engine Features
+
+#### Basic Usage
 
 ```clojure
 (require '[chess-engine-wrapper.core :as chess])
@@ -77,6 +91,85 @@ Alternatively, you can use a local checkout:
 ;=> {:score-cp 38, :best-move "e2e4"}
 ;; score-cp is in centipawns (100 = 1 pawn advantage for white)
 ;; Positive scores favor white, negative scores favor black
+```
+
+### Display Features
+
+#### Generate SVG Checkerboards
+
+```clojure
+(require '[chess-engine-wrapper.display :as display])
+
+;; 8x8 chess board with dark top-left square
+(display/checkerboard 8 8 :dark)
+;=> "<svg width=\"100%\" height=\"100%\" viewBox=\"0 0 400 400\"...>"
+
+;; 10x10 checkers board with light top-left square
+(display/checkerboard 10 10 :light)
+```
+
+#### Display Chess Pieces
+
+```clojure
+;; Standard chess starting position
+(display/checkerboard-with-pieces 8 8 :dark (display/standard-chess-position))
+
+;; Custom piece placement - positions are [row col] with [0 0] being top-left
+(display/checkerboard-with-pieces 8 8 :dark {[3 3] :white-queen
+                                              [3 4] :black-king
+                                              [4 3] :black-knight
+                                              [4 4] :white-bishop})
+```
+
+Available piece keywords:
+- White pieces: `:white-king`, `:white-queen`, `:white-rook`, `:white-bishop`, `:white-knight`, `:white-pawn`
+- Black pieces: `:black-king`, `:black-queen`, `:black-rook`, `:black-bishop`, `:black-knight`, `:black-pawn`
+
+#### Convert FEN to Pieces
+
+```clojure
+;; Standard starting position
+(display/fen->pieces "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+;; Returns {[0 0] :black-rook, [0 1] :black-knight, ...}
+
+;; Just piece placement (without game state)
+(display/fen->pieces "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+
+;; Custom position
+(display/fen->pieces "4k3/8/8/3Q4/8/8/8/4K3")
+;; Returns {[0 4] :black-king, [3 3] :white-queen, [7 4] :white-king}
+```
+
+#### Calculate Material Value
+
+```clojure
+;; Standard starting position (78 total value / 32 pieces = 2.4375)
+(display/fen->avg-material-value "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+;=> 2.4375
+
+;; Custom position
+(display/fen->avg-material-value "4k3/8/8/3Q4/8/8/8/4K3")
+;=> 3.0
+```
+
+Material values used: Pawn=1, Knight=3, Bishop=3, Rook=5, Queen=9, King=0
+
+#### Generate Complete HTML Pages
+
+```clojure
+;; With default colors (chess green/cream)
+(display/render-checkerboard-html 8 8 :dark)
+
+;; With custom colors
+(display/render-checkerboard-html 8 8 :dark "#b58863" "#f0d9b5")
+```
+
+The SVG uses CSS classes for styling, making it easy to change colors:
+
+```css
+.dark-square { fill: #769656; }  /* Dark squares */
+.light-square { fill: #eeeed2; } /* Light squares */
+.chess-piece { fill: #000; }     /* Chess piece color */
 ```
 
 ### Using a Different Engine
@@ -108,7 +201,9 @@ For more control over the engine lifecycle:
 
 ## API Reference
 
-### `get-next-positions`
+### Engine API
+
+#### `get-next-positions`
 
 ```clojure
 (get-next-positions fen)
@@ -132,7 +227,7 @@ A vector of FEN strings representing all positions reachable by one legal move.
 ;    ...]
 ```
 
-### `with-engine`
+#### `with-engine`
 
 ```clojure
 (with-engine engine-path f)
@@ -147,7 +242,7 @@ Execute a function with an initialized engine. The function receives the engine 
 **Returns:**
 The result of calling function `f`
 
-### `get-position-value`
+#### `get-position-value`
 
 ```clojure
 (get-position-value fen movetime-ms)
@@ -172,6 +267,99 @@ A map with `:score-cp` (centipawn score from white's perspective) and `:best-mov
 (get-position-value "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" 1000)
 ;=> {:score-cp 38, :best-move "e2e4"}
 ```
+
+### Display API
+
+#### `checkerboard`
+
+```clojure
+(checkerboard width height top-left-color)
+(checkerboard width height top-left-color square-size)
+```
+
+Generate an HTML SVG checkerboard.
+
+**Parameters:**
+- `width` - Number of squares wide (integer)
+- `height` - Number of squares tall (integer)  
+- `top-left-color` - `:light` or `:dark` - determines the color of the top-left square
+- `square-size` - (optional) Size of each square in pixels (default: 50)
+
+**Returns:** SVG string with responsive viewBox
+
+#### `checkerboard-with-pieces`
+
+```clojure
+(checkerboard-with-pieces width height top-left-color pieces)
+(checkerboard-with-pieces width height top-left-color pieces square-size)
+```
+
+Generate an HTML SVG checkerboard with chess pieces.
+
+**Parameters:**
+- `width` - Number of squares wide (integer)
+- `height` - Number of squares tall (integer)
+- `top-left-color` - `:light` or `:dark`
+- `pieces` - Map of positions to piece keywords, e.g. `{[0 0] :white-rook [0 1] :white-knight}`
+- `square-size` - (optional) Size of each square in pixels (default: 50)
+
+**Returns:** SVG string with chess pieces
+
+#### `standard-chess-position`
+
+```clojure
+(standard-chess-position)
+```
+
+**Returns:** Map of the standard chess starting position with all 32 pieces
+
+#### `fen->pieces`
+
+```clojure
+(fen->pieces fen)
+```
+
+Convert FEN (Forsyth-Edwards Notation) to pieces map format.
+
+**Parameters:**
+- `fen` - FEN string (can be full FEN or just the piece placement part)
+
+**Returns:** Map of `[row col]` -> piece keyword
+
+FEN notation describes positions from rank 8 (row 0) to rank 1 (row 7). Uppercase letters are white pieces, lowercase are black. Numbers indicate empty squares.
+
+#### `fen->avg-material-value`
+
+```clojure
+(fen->avg-material-value fen)
+```
+
+Calculate average material value from a FEN position.
+
+**Parameters:**
+- `fen` - FEN string (can be full FEN or just the piece placement part)
+
+**Returns:** Average material value as a double
+
+Material values: Pawn=1, Knight=3, Bishop=3, Rook=5, Queen=9, King=0 (invaluable)
+
+#### `render-checkerboard-html`
+
+```clojure
+(render-checkerboard-html width height top-left-color)
+(render-checkerboard-html width height top-left-color dark-color light-color)
+```
+
+Generate a complete HTML page with an embedded checkerboard SVG.
+
+**Parameters:**
+- `width` - Number of squares wide (integer)
+- `height` - Number of squares tall (integer)
+- `top-left-color` - `:light` or `:dark`
+- `dark-color` - (optional) CSS color value for dark squares (default: `"#769656"`)
+- `light-color` - (optional) CSS color value for light squares (default: `"#eeeed2"`)
+
+**Returns:** Complete HTML document string
 
 ## Development
 

@@ -151,3 +151,105 @@
       ; 2 rooks (2*5) + 2 knights (2*3) + 2 bishops (2*3) + 2 queens (2*9)
       ; = 10 + 6 + 6 + 18 = 40 / 8 = 5.0
       (is (= 5.0 avg)))))
+
+(deftest test-fen->material-balance
+  (testing "standard starting position is balanced"
+    (let [fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+          balance (fen->material-balance fen)]
+      (is (= 0 balance))))
+  
+  (testing "white missing a rook"
+    (let [fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1"
+          balance (fen->material-balance fen)]
+      ; Black is ahead by 5 points (a rook)
+      (is (= -5 balance))))
+  
+  (testing "black missing a rook"
+    (let [fen "rnbqkbn1/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+          balance (fen->material-balance fen)]
+      ; White is ahead by 5 points (a rook)
+      (is (= 5 balance))))
+  
+  (testing "white missing a pawn"
+    (let [fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPP1/RNBQKBNR"
+          balance (fen->material-balance fen)]
+      (is (= -1 balance))))
+  
+  (testing "black missing a queen"
+    (let [fen "rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+          balance (fen->material-balance fen)]
+      ; White is ahead by 9 points (a queen)
+      (is (= 9 balance))))
+  
+  (testing "complex position"
+    (let [fen "rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+          balance (fen->material-balance fen)]
+      ; White has an extra knight (3 points)
+      (is (= 3 balance))))
+  
+  (testing "empty board is balanced"
+    (let [fen "8/8/8/8/8/8/8/8"
+          balance (fen->material-balance fen)]
+      (is (= 0 balance))))
+  
+  (testing "only kings is balanced"
+    (let [fen "k7/8/8/8/8/8/8/K7"
+          balance (fen->material-balance fen)]
+      (is (= 0 balance)))))
+
+(deftest test-fen->captured-pieces
+  (testing "standard starting position has no captures"
+    (let [fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+          captured (fen->captured-pieces fen)]
+      (is (= {} (:white captured)))
+      (is (= {} (:black captured)))))
+  
+  (testing "white rook captured"
+    (let [fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1"
+          captured (fen->captured-pieces fen)]
+      (is (= {:rook 1} (:white captured)))
+      (is (= {} (:black captured)))))
+  
+  (testing "black rook captured"
+    (let [fen "rnbqkbn1/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+          captured (fen->captured-pieces fen)]
+      (is (= {} (:white captured)))
+      (is (= {:rook 1} (:black captured)))))
+  
+  (testing "multiple white pieces captured"
+    (let [fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPP2/RNBQKBN1"
+          captured (fen->captured-pieces fen)]
+      (is (= {:pawn 2 :rook 1} (:white captured)))
+      (is (= {} (:black captured)))))
+  
+  (testing "multiple black pieces captured"
+    (let [fen "rnbqkbn1/pppppp2/8/8/8/8/PPPPPPPP/RNBQKBNR"
+          captured (fen->captured-pieces fen)]
+      (is (= {} (:white captured)))
+      (is (= {:pawn 2 :rook 1} (:black captured)))))
+  
+  (testing "both sides have captures"
+    (let [fen "rnbqkbn1/ppppppp1/8/8/8/8/PPPPPPP1/RNBQKBN1"
+          captured (fen->captured-pieces fen)]
+      (is (= {:pawn 1 :rook 1} (:white captured)))
+      (is (= {:pawn 1 :rook 1} (:black captured)))))
+  
+  (testing "queen captured"
+    (let [fen "rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+          captured (fen->captured-pieces fen)]
+      (is (= {} (:white captured)))
+      (is (= {:queen 1} (:black captured)))))
+  
+  (testing "complex mid-game position"
+    (let [fen "r1bqkb1r/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R"
+          captured (fen->captured-pieces fen)]
+      ; White missing: nothing
+      ; Black missing: 1 knight
+      (is (= {} (:white captured)))
+      (is (= {:knight 1} (:black captured)))))
+  
+  (testing "empty board captures everything"
+    (let [fen "8/8/8/8/8/8/8/8"
+          captured (fen->captured-pieces fen)]
+      (is (= {:pawn 8 :knight 2 :bishop 2 :rook 2 :queen 1 :king 1} (:white captured)))
+      (is (= {:pawn 8 :knight 2 :bishop 2 :rook 2 :queen 1 :king 1} (:black captured))))))

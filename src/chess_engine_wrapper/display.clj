@@ -239,3 +239,105 @@
       0
       (double (/ (reduce + (map (comp piece->material-value second) pieces))
                  piece-count)))))
+
+(defn fen->material-balance
+  "Calculate the material balance from a FEN position in pawns worth.
+  
+  Returns the difference between white's material and black's material.
+  Positive values indicate white is ahead, negative values indicate black is ahead.
+  Kings have a value of 0 and do not affect the balance.
+  
+  Parameters:
+  - fen: FEN string (can be full FEN or just the piece placement part)
+  
+  Returns material balance as an integer (in pawn units).
+  
+  Example:
+  (fen->material-balance \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR\")
+  ;; Returns 0 (balanced position)
+  
+  (fen->material-balance \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1\")
+  ;; Returns -5 (black is ahead by a rook)"
+  [fen]
+  (let [pieces (fen->pieces fen)
+        white-pieces (filter (fn [[_ piece]] 
+                               (#{:white-pawn :white-knight :white-bishop 
+                                  :white-rook :white-queen :white-king} piece)) 
+                             pieces)
+        black-pieces (filter (fn [[_ piece]] 
+                               (#{:black-pawn :black-knight :black-bishop 
+                                  :black-rook :black-queen :black-king} piece)) 
+                             pieces)
+        white-value (reduce + (map (comp piece->material-value second) white-pieces))
+        black-value (reduce + (map (comp piece->material-value second) black-pieces))]
+    (- white-value black-value)))
+
+(defn- standard-starting-pieces
+  "Returns the pieces that should be in a standard chess starting position."
+  []
+  {:white {:pawn 8 :knight 2 :bishop 2 :rook 2 :queen 1 :king 1}
+   :black {:pawn 8 :knight 2 :bishop 2 :rook 2 :queen 1 :king 1}})
+
+(defn fen->captured-pieces
+  "Determine which pieces have been captured based on a FEN position.
+  
+  Compares the current position to the standard starting position to identify
+  missing pieces for each side.
+  
+  Parameters:
+  - fen: FEN string (can be full FEN or just the piece placement part)
+  
+  Returns a map with :white and :black keys, each containing a map of piece types
+  to counts of captured pieces.
+  
+  Example:
+  (fen->captured-pieces \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1\")
+  ;; Returns {:white {:rook 1} :black {}}
+  
+  (fen->captured-pieces \"rnbqkbnr/ppp1pppp/8/8/8/8/PPPPPPPP/RNBQKBNR\")
+  ;; Returns {:white {} :black {:pawn 1}}"
+  [fen]
+  (let [pieces (fen->pieces fen)
+        current-white (frequencies 
+                       (map (fn [[_ piece]]
+                              (case piece
+                                :white-pawn :pawn
+                                :white-knight :knight
+                                :white-bishop :bishop
+                                :white-rook :rook
+                                :white-queen :queen
+                                :white-king :king
+                                nil))
+                            (filter (fn [[_ piece]] 
+                                      (#{:white-pawn :white-knight :white-bishop 
+                                         :white-rook :white-queen :white-king} piece)) 
+                                    pieces)))
+        current-black (frequencies 
+                       (map (fn [[_ piece]]
+                              (case piece
+                                :black-pawn :pawn
+                                :black-knight :knight
+                                :black-bishop :bishop
+                                :black-rook :rook
+                                :black-queen :queen
+                                :black-king :king
+                                nil))
+                            (filter (fn [[_ piece]] 
+                                      (#{:black-pawn :black-knight :black-bishop 
+                                         :black-rook :black-queen :black-king} piece)) 
+                                    pieces)))
+        starting (standard-starting-pieces)
+        white-captured (into {} 
+                             (for [[piece-type start-count] (:white starting)
+                                   :let [current-count (get current-white piece-type 0)
+                                         captured (- start-count current-count)]
+                                   :when (pos? captured)]
+                               [piece-type captured]))
+        black-captured (into {} 
+                             (for [[piece-type start-count] (:black starting)
+                                   :let [current-count (get current-black piece-type 0)
+                                         captured (- start-count current-count)]
+                                   :when (pos? captured)]
+                               [piece-type captured]))]
+    {:white white-captured
+     :black black-captured}))

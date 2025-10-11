@@ -15,6 +15,8 @@ A Clojure library that wraps UCI (Universal Chess Interface) standard chess engi
 - Place chess pieces on boards using Unicode symbols
 - Convert FEN notation to piece positions
 - Calculate average material value from FEN positions
+- Calculate material balance in pawn units
+- Determine captured pieces for each side
 - Fully responsive SVG output with CSS-based color theming
 - Generate complete HTML pages with embedded boards
 
@@ -150,6 +152,40 @@ Available piece keywords:
 ;; Custom position
 (display/fen->avg-material-value "4k3/8/8/3Q4/8/8/8/4K3")
 ;=> 3.0
+```
+
+Material values used: Pawn=1, Knight=3, Bishop=3, Rook=5, Queen=9, King=0
+
+#### Calculate Material Balance
+
+```clojure
+;; Standard starting position (balanced)
+(display/fen->material-balance "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+;=> 0
+
+;; Position where white is up a rook
+(display/fen->material-balance "rnbqkbn1/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+;=> 5
+
+;; Position where black is up a queen
+(display/fen->material-balance "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR")
+;=> -9
+```
+
+#### Get Captured Pieces
+
+```clojure
+;; Standard starting position (no captures)
+(display/fen->captured-pieces "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+;=> {:white {} :black {}}
+
+;; Position where white has lost a rook
+(display/fen->captured-pieces "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1")
+;=> {:white {:rook 1} :black {}}
+
+;; Position where both sides have lost pieces
+(display/fen->captured-pieces "r1bqkb1r/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R")
+;=> {:white {} :black {:knight 1}}
 ```
 
 Material values used: Pawn=1, Knight=3, Bishop=3, Rook=5, Queen=9, King=0
@@ -358,6 +394,54 @@ Calculate average material value from a FEN position.
 **Returns:** Average material value as a double
 
 Material values: Pawn=1, Knight=3, Bishop=3, Rook=5, Queen=9, King=0 (invaluable)
+
+#### `fen->material-balance`
+
+```clojure
+(fen->material-balance fen)
+```
+
+Calculate the material balance from a FEN position in pawns worth.
+
+**Parameters:**
+- `fen` - FEN string (can be full FEN or just the piece placement part)
+
+**Returns:** Material balance as an integer (in pawn units)
+
+Returns the difference between white's material and black's material. Positive values indicate white is ahead, negative values indicate black is ahead. Kings have a value of 0 and do not affect the balance.
+
+**Example:**
+```clojure
+(fen->material-balance "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+;=> 0  ; balanced position
+
+(fen->material-balance "rnbqkbn1/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR")
+;=> 5  ; white is ahead by a rook
+```
+
+#### `fen->captured-pieces`
+
+```clojure
+(fen->captured-pieces fen)
+```
+
+Determine which pieces have been captured based on a FEN position.
+
+**Parameters:**
+- `fen` - FEN string (can be full FEN or just the piece placement part)
+
+**Returns:** Map with `:white` and `:black` keys containing maps of captured piece types to counts
+
+Compares the current position to the standard starting position to identify missing pieces for each side.
+
+**Example:**
+```clojure
+(fen->captured-pieces "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1")
+;=> {:white {:rook 1} :black {}}
+
+(fen->captured-pieces "r1bqkb1r/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R")
+;=> {:white {} :black {:knight 1}}
+```
 
 #### `render-checkerboard-html`
 

@@ -89,3 +89,31 @@
                                  (re-matches #"[a-h][1-8][a-h][1-8].*:.*" %))
                            lines)]
     (mapv #(first (str/split % #":")) move-lines)))
+
+(defn get-position-value
+  "Get the evaluation of the current position in centipawns.
+  
+  Parameters:
+  - engine: The engine instance
+  - movetime-ms: Time limit for computation in milliseconds
+  
+  Returns:
+  A map with :score-cp (centipawn score from white's perspective) and :best-move.
+  Returns nil if no evaluation is available."
+  [engine movetime-ms]
+  (send-command engine (str "go movetime " movetime-ms))
+  (let [lines (read-until engine #(str/starts-with? % "bestmove") (+ movetime-ms 5000))
+        ;; Get the last info line with a score
+        info-lines (filter #(and (str/starts-with? % "info")
+                                (str/includes? % "score cp")) lines)
+        last-info (last info-lines)
+        bestmove-line (first (filter #(str/starts-with? % "bestmove") lines))]
+    (when (and last-info bestmove-line)
+      (let [;; Extract score from "info ... score cp 38 ..."
+            score-match (re-find #"score cp (-?\d+)" last-info)
+            score (when score-match (Integer/parseInt (second score-match)))
+            ;; Extract best move from "bestmove e2e4 ..."
+            move-match (re-find #"bestmove ([a-h][1-8][a-h][1-8][qrbn]?)" bestmove-line)
+            best-move (when move-match (second move-match))]
+        {:score-cp score
+         :best-move best-move}))))

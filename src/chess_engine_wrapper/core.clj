@@ -58,6 +58,29 @@
        (finally
          (uci/stop-engine engine))))))
 
+(defn get-position-value
+  "Get the evaluation of a chess position given in FEN notation.
+  
+  Parameters:
+  - fen: A chess position in FEN notation
+  - movetime-ms: Time limit for computation in milliseconds
+  - engine-path: (optional) Path to UCI engine executable (defaults to 'stockfish')
+  
+  Returns:
+  A map with :score-cp (centipawn score from white's perspective) and :best-move.
+  A positive score favors white, negative favors black.
+  Returns nil if no evaluation is available."
+  ([fen movetime-ms]
+   (get-position-value fen movetime-ms *default-engine-path*))
+  ([fen movetime-ms engine-path]
+   (let [engine (-> (uci/start-engine engine-path)
+                    (uci/init-engine))]
+     (try
+       (uci/set-position engine fen)
+       (uci/get-position-value engine movetime-ms)
+       (finally
+         (uci/stop-engine engine))))))
+
 (defn with-engine
   "Execute a function with an initialized engine. The function receives the engine as argument.
   

@@ -1,6 +1,7 @@
 (ns chess-engine-wrapper.display
   "Chess board display functionality - generate SVG checkerboards with pieces"
-  (:require [chess-engine-wrapper.core]))
+  (:require [chess-engine-wrapper.core]
+            [chess-engine-wrapper.conversion :as conversion]))
 
 (defn- html-escape
   "Escape HTML special characters."
@@ -41,28 +42,6 @@
           (clojure.string/join "" squares)
           "</svg>"))))
 
-(defn- piece-unicode
-  "Get Unicode character for a chess piece.
-  
-  Parameters:
-  - piece: keyword like :white-king, :black-pawn, etc.
-  
-  Returns Unicode character for the piece."
-  [piece]
-  (case piece
-    :white-king "♔"
-    :white-queen "♕"
-    :white-rook "♖"
-    :white-bishop "♗"
-    :white-knight "♘"
-    :white-pawn "♙"
-    :black-king "♚"
-    :black-queen "♛"
-    :black-rook "♜"
-    :black-bishop "♝"
-    :black-knight "♞"
-    :black-pawn "♟"
-    ""))
 
 (defn standard-chess-position
   "Returns a map of the standard chess starting position.
@@ -114,7 +93,7 @@
                                y (* row square-size)
                                text-x (+ x (/ square-size 2))
                                text-y (+ y (/ square-size 2))
-                               unicode-char (piece-unicode piece)]
+                               unicode-char (conversion/piece-unicode piece)]
                            (format "<text x=\"%d\" y=\"%d\" class=\"chess-piece\" text-anchor=\"middle\" dominant-baseline=\"central\">%s</text>"
                                    text-x text-y unicode-char)))]
      (str "<svg width=\"100%\" height=\"100%\" viewBox=\"0 0 " svg-width " " svg-height "\" xmlns=\"http://www.w3.org/2000/svg\">"
@@ -154,29 +133,6 @@
         "</body>"
         "</html>")))
 
-(defn- fen-char->piece
-  "Convert a FEN character to a piece keyword.
-  
-  Parameters:
-  - c: FEN character (uppercase for white, lowercase for black)
-  
-  Returns piece keyword or nil if not a piece."
-  [c]
-  (case c
-    \P :white-pawn
-    \N :white-knight
-    \B :white-bishop
-    \R :white-rook
-    \Q :white-queen
-    \K :white-king
-    \p :black-pawn
-    \n :black-knight
-    \b :black-bishop
-    \r :black-rook
-    \q :black-queen
-    \k :black-king
-    nil))
-
 (defn fen->pieces
   "Convert FEN notation to pieces map format.
   
@@ -192,32 +148,7 @@
   (fen->pieces \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR\")
   ;; Returns standard chess starting position"
   [fen]
-  (let [piece-placement (first (clojure.string/split fen #"\s+"))
-        ranks (clojure.string/split piece-placement #"/")]
-    (into {}
-          (for [[row-idx rank] (map-indexed vector ranks)
-                [col-idx piece] (->> rank
-                                     (mapcat (fn [c]
-                                               (if (Character/isDigit c)
-                                                 (repeat (Character/digit c 10) nil)
-                                                 [c])))
-                                     (map-indexed vector))
-                :when piece]
-            [[row-idx col-idx] (fen-char->piece piece)]))))
-
-(defn- piece->material-value
-  "Get the material value of a chess piece.
-  
-  Standard values: Pawn=1, Knight=3, Bishop=3, Rook=5, Queen=9, King=0"
-  [piece]
-  (case piece
-    (:white-pawn :black-pawn) 1
-    (:white-knight :black-knight) 3
-    (:white-bishop :black-bishop) 3
-    (:white-rook :black-rook) 5
-    (:white-queen :black-queen) 9
-    (:white-king :black-king) 0
-    0))
+  (conversion/fen->pieces fen))
 
 (defn fen->avg-material-value
   "Calculate the average material value from a FEN position.
@@ -234,11 +165,11 @@
   (fen->avg-material-value \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR\")
   ;; Returns 2.4375 (total value 78 / 32 pieces)"
   [fen]
-  (let [pieces (fen->pieces fen)
+  (let [pieces (conversion/fen->pieces fen)
         piece-count (count pieces)]
     (if (zero? piece-count)
       0.0
-      (double (/ (reduce + (map (comp piece->material-value second) pieces))
+      (double (/ (reduce + (map (comp conversion/piece->material-value second) pieces))
                  piece-count)))))
 
 (defn fen->material-balance
@@ -260,7 +191,7 @@
   (fen->material-balance \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1\")
   ;; Returns -5 (black is ahead by a rook)"
   [fen]
-  (let [pieces (fen->pieces fen)
+  (let [pieces (conversion/fen->pieces fen)
         white-pieces (filter (fn [[_ piece]] 
                                (#{:white-pawn :white-knight :white-bishop 
                                   :white-rook :white-queen :white-king} piece)) 
@@ -269,8 +200,8 @@
                                (#{:black-pawn :black-knight :black-bishop 
                                   :black-rook :black-queen :black-king} piece)) 
                              pieces)
-        white-value (reduce + (map (comp piece->material-value second) white-pieces))
-        black-value (reduce + (map (comp piece->material-value second) black-pieces))]
+        white-value (reduce + (map (comp conversion/piece->material-value second) white-pieces))
+        black-value (reduce + (map (comp conversion/piece->material-value second) black-pieces))]
     (- white-value black-value)))
 
 (defn- standard-starting-pieces
@@ -298,7 +229,7 @@
   (fen->captured-pieces \"rnbqkbnr/ppp1pppp/8/8/8/8/PPPPPPPP/RNBQKBNR\")
   ;; Returns {:white {} :black {:pawn 1}}"
   [fen]
-  (let [pieces (fen->pieces fen)
+  (let [pieces (conversion/fen->pieces fen)
         current-white (frequencies 
                        (map (fn [[_ piece]]
                               (case piece
@@ -370,9 +301,9 @@
      :fullmove-number (if fullmove (Integer/parseInt fullmove) nil)}))
 
 (defn fen->html-display
-  "Generate a complete HTML page displaying a chess position from FEN with detailed information.
+  "Generate HTML displaying a chess position from FEN with detailed information.
   
-  Creates an HTML page with:
+  Creates HTML with:
   - SVG board showing the position
   - Side panel with position information (FEN, piece count, material balance, captured pieces, engine evaluation, etc.)
   
@@ -380,19 +311,24 @@
   - fen: FEN string (full FEN with game state or just piece placement)
   - movetime-ms: (optional) Time limit for engine evaluation in milliseconds (default: 1000)
   - engine-path: (optional) Path to UCI engine executable (default: \"stockfish\")
+  - component-only: (optional) When true, returns only the component HTML without DOCTYPE, html, head, and body tags (default: false)
   
-  Returns a complete HTML document string.
+  Returns HTML string. If component-only is true, returns just the display component.
+  Otherwise returns a complete HTML document.
   
   Example:
   (fen->html-display \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\")
   (fen->html-display \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\" 2000)
-  (fen->html-display \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\" 2000 \"/path/to/engine\")"
+  (fen->html-display \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\" 2000 \"/path/to/engine\")
+  (fen->html-display \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\" 2000 \"stockfish\" true)"
   ([fen]
    (fen->html-display fen 1000))
   ([fen movetime-ms]
    (fen->html-display fen movetime-ms "stockfish"))
   ([fen movetime-ms engine-path]
-   (let [pieces (fen->pieces fen)
+   (fen->html-display fen movetime-ms engine-path false))
+  ([fen movetime-ms engine-path component-only]
+   (let [pieces (conversion/fen->pieces fen)
          svg (checkerboard-with-pieces 8 8 :dark pieces)
          piece-count (count pieces)
          balance (fen->material-balance fen)
@@ -414,44 +350,19 @@
                                    piece-map))))
         
         ;; Calculate material values
-        white-material (reduce + (map (comp piece->material-value second)
+        white-material (reduce + (map (comp conversion/piece->material-value second)
                                       (filter (fn [[_ piece]]
                                                 (#{:white-pawn :white-knight :white-bishop
                                                    :white-rook :white-queen :white-king} piece))
                                               pieces)))
-        black-material (reduce + (map (comp piece->material-value second)
+        black-material (reduce + (map (comp conversion/piece->material-value second)
                                       (filter (fn [[_ piece]]
                                                 (#{:black-pawn :black-knight :black-bishop
                                                    :black-rook :black-queen :black-king} piece))
-                                              pieces)))]
-    (str "<!DOCTYPE html>"
-         "<html>"
-         "<head>"
-         "<meta charset=\"UTF-8\">"
-         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
-         "<title>Chess Position from FEN</title>"
-         "<style>"
-         ".dark-square { fill: #769656; }\n"
-         ".light-square { fill: #eeeed2; }\n"
-         ".chess-piece { font-size: 40px; fill: #000; }\n"
-         "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }\n"
-         ".container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }\n"
-         ".content { display: flex; flex-wrap: wrap; }\n"
-         ".board-section { flex: 1; min-width: 300px; padding: 30px; }\n"
-         ".info-section { flex: 1; min-width: 300px; padding: 30px; background: #fafafa; border-left: 1px solid #e0e0e0; }\n"
-         "h1 { margin: 0 0 20px 0; color: #333; font-size: 24px; }\n"
-         "h2 { margin: 20px 0 10px 0; color: #555; font-size: 18px; border-bottom: 2px solid #769656; padding-bottom: 5px; }\n"
-         ".info-row { margin: 8px 0; display: flex; justify-content: space-between; align-items: baseline; }\n"
-         ".info-label { font-weight: 600; color: #666; }\n"
-         ".info-value { color: #333; font-family: 'Courier New', monospace; }\n"
-         ".fen-display { background: #f0f0f0; padding: 10px; border-radius: 4px; word-break: break-all; font-family: 'Courier New', monospace; font-size: 12px; margin: 10px 0; }\n"
-         ".positive { color: #2e7d32; }\n"
-         ".negative { color: #c62828; }\n"
-         ".neutral { color: #666; }\n"
-         "@media (max-width: 768px) { .content { flex-direction: column; } .info-section { border-left: none; border-top: 1px solid #e0e0e0; } }\n"
-         "</style>"
-         "</head>"
-         "<body>"
+                                              pieces)))
+        
+        ;; Generate the component content
+        component-content (str
          "<div class=\"container\">"
          "<div class=\"content\">"
          
@@ -557,5 +468,38 @@
          "</div>" ; info-section
          "</div>" ; content
          "</div>" ; container
-         "</body>"
-         "</html>"))))
+         )]
+     
+     (if component-only
+       component-content
+       (str "<!DOCTYPE html>"
+            "<html>"
+            "<head>"
+            "<meta charset=\"UTF-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
+            "<title>Chess Position from FEN</title>"
+            "<style>"
+            ".dark-square { fill: #769656; }\n"
+            ".light-square { fill: #eeeed2; }\n"
+            ".chess-piece { font-size: 40px; fill: #000; }\n"
+            "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }\n"
+            ".container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }\n"
+            ".content { display: flex; flex-wrap: wrap; }\n"
+            ".board-section { flex: 1; min-width: 300px; padding: 30px; }\n"
+            ".info-section { flex: 1; min-width: 300px; padding: 30px; background: #fafafa; border-left: 1px solid #e0e0e0; }\n"
+            "h1 { margin: 0 0 20px 0; color: #333; font-size: 24px; }\n"
+            "h2 { margin: 20px 0 10px 0; color: #555; font-size: 18px; border-bottom: 2px solid #769656; padding-bottom: 5px; }\n"
+            ".info-row { margin: 8px 0; display: flex; justify-content: space-between; align-items: baseline; }\n"
+            ".info-label { font-weight: 600; color: #666; }\n"
+            ".info-value { color: #333; font-family: 'Courier New', monospace; }\n"
+            ".fen-display { background: #f0f0f0; padding: 10px; border-radius: 4px; word-break: break-all; font-family: 'Courier New', monospace; font-size: 12px; margin: 10px 0; }\n"
+            ".positive { color: #2e7d32; }\n"
+            ".negative { color: #c62828; }\n"
+            ".neutral { color: #666; }\n"
+            "@media (max-width: 768px) { .content { flex-direction: column; } .info-section { border-left: none; border-top: 1px solid #e0e0e0; } }\n"
+            "</style>"
+            "</head>"
+            "<body>"
+            component-content
+            "</body>"
+            "</html>")))))

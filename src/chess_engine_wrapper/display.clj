@@ -1,5 +1,6 @@
 (ns chess-engine-wrapper.display
-  "Chess board display functionality - generate SVG checkerboards with pieces")
+  "Chess board display functionality - generate SVG checkerboards with pieces"
+  (:require [chess-engine-wrapper.core]))
 
 (defn- html-escape
   "Escape HTML special characters."
@@ -373,23 +374,35 @@
   
   Creates an HTML page with:
   - SVG board showing the position
-  - Side panel with position information (FEN, piece count, material balance, captured pieces, etc.)
+  - Side panel with position information (FEN, piece count, material balance, captured pieces, engine evaluation, etc.)
   
   Parameters:
   - fen: FEN string (full FEN with game state or just piece placement)
+  - movetime-ms: (optional) Time limit for engine evaluation in milliseconds (default: 1000)
+  - engine-path: (optional) Path to UCI engine executable (default: \"stockfish\")
   
   Returns a complete HTML document string.
   
   Example:
-  (fen->html-display \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\")"
-  [fen]
-  (let [pieces (fen->pieces fen)
-        svg (checkerboard-with-pieces 8 8 :dark pieces)
-        piece-count (count pieces)
-        avg-value (fen->avg-material-value fen)
-        balance (fen->material-balance fen)
-        captured (fen->captured-pieces fen)
-        fen-info (parse-fen-info fen)
+  (fen->html-display \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\")
+  (fen->html-display \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\" 2000)
+  (fen->html-display \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\" 2000 \"/path/to/engine\")"
+  ([fen]
+   (fen->html-display fen 1000))
+  ([fen movetime-ms]
+   (fen->html-display fen movetime-ms "stockfish"))
+  ([fen movetime-ms engine-path]
+   (let [pieces (fen->pieces fen)
+         svg (checkerboard-with-pieces 8 8 :dark pieces)
+         piece-count (count pieces)
+         balance (fen->material-balance fen)
+         captured (fen->captured-pieces fen)
+         fen-info (parse-fen-info fen)
+         
+         ;; Get engine evaluation
+         engine-eval (try
+                       (chess-engine-wrapper.core/get-position-value fen movetime-ms engine-path)
+                       (catch Exception e nil))
         
         ;; Helper to format captured pieces
         format-captured (fn [piece-map]
@@ -515,10 +528,20 @@
          ")</span>"
          "</div>"
          
-         "<div class=\"info-row\">"
-         "<span class=\"info-label\">Avg Material Value:</span>"
-         "<span class=\"info-value\">" (format "%.2f" avg-value) " points</span>"
-         "</div>"
+         (when engine-eval
+           (str "<div class=\"info-row\">"
+                "<span class=\"info-label\">Engine Evaluation:</span>"
+                "<span class=\"info-value " 
+                (cond
+                  (pos? (:score-cp engine-eval)) "positive"
+                  (neg? (:score-cp engine-eval)) "negative"
+                  :else "neutral")
+                "\">"
+                (if (pos? (:score-cp engine-eval)) "+" "") 
+                (format "%.2f" (/ (:score-cp engine-eval) 100.0))
+                " pawns"
+                "</span>"
+                "</div>"))
          
          "<h2>Captured Pieces</h2>"
          "<div class=\"info-row\">"
@@ -535,4 +558,4 @@
          "</div>" ; content
          "</div>" ; container
          "</body>"
-         "</html>")))
+         "</html>"))))

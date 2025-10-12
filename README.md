@@ -32,7 +32,43 @@ A Clojure library that wraps UCI (Universal Chess Interface) standard chess engi
 
 ## Installation
 
-### Installing Stockfish
+### Quick Setup (for Development)
+
+If you're setting up a development environment, you can use the automated setup script:
+
+```bash
+./setup.sh
+```
+
+This script will install:
+- Clojure CLI tools (version 1.11.1.1429)
+- Stockfish chess engine
+
+The script supports Linux and macOS. For Windows users, it will provide manual installation instructions.
+
+### Manual Installation
+
+#### Installing Clojure CLI Tools
+
+**Linux:**
+```bash
+curl -L -O https://github.com/clojure/brew-install/releases/download/1.11.1.1429/linux-install.sh
+chmod +x linux-install.sh
+sudo ./linux-install.sh
+```
+
+**macOS:**
+```bash
+brew install clojure/tools/clojure
+```
+
+**Windows:**
+Follow the instructions at [clj on Windows](https://github.com/clojure/tools.deps.alpha/wiki/clj-on-Windows) or use Scoop:
+```powershell
+scoop install clojure
+```
+
+#### Installing Stockfish
 
 **Linux (Ubuntu/Debian):**
 ```bash

@@ -190,6 +190,35 @@ Material values used: Pawn=1, Knight=3, Bishop=3, Rook=5, Queen=9, King=0
 
 Material values used: Pawn=1, Knight=3, Bishop=3, Rook=5, Queen=9, King=0
 
+#### Generate FEN Position Display
+
+Generate a complete HTML page with a chess position and detailed analysis:
+
+```clojure
+;; Standard starting position with full analysis
+(display/fen->html-display "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+
+;; Middlegame position
+(display/fen->html-display "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4")
+
+;; Works with just piece placement too
+(display/fen->html-display "4k3/8/8/3Q4/8/8/8/4K3")
+```
+
+The generated HTML includes:
+- SVG chessboard with the position
+- FEN string display
+- Active color and castling rights (if provided)
+- En passant square (if applicable)
+- Halfmove clock and fullmove number (if provided)
+- Total piece count
+- Material values for both sides
+- Material balance with visual indicators (green for ahead, red for behind)
+- Average material value
+- List of captured pieces for each side
+
+The page is fully responsive with a side-by-side layout on larger screens and stacked layout on mobile.
+
 #### Generate Complete HTML Pages
 
 ```clojure
@@ -223,6 +252,24 @@ This creates six HTML files:
 - `example-standard-position.html` - Board with standard chess starting position
 - `example-custom-pieces.html` - Board with custom piece placement
 - `example-fen-position.html` - Board showing a position from FEN notation
+
+Generate FEN position display examples:
+
+```bash
+clojure -M -m example-fen-display
+```
+
+This creates ten HTML files demonstrating the `fen->html-display` function with various positions:
+- `fen-display-starting-position.html` - Standard starting position with full analysis
+- `fen-display-italian-game.html` - Italian Game opening position
+- `fen-display-white-ahead.html` - Position where white is ahead in material
+- `fen-display-black-ahead.html` - Position where black is ahead in material
+- `fen-display-endgame.html` - Pawn endgame position
+- `fen-display-en-passant.html` - Position with en passant opportunity
+- `fen-display-castling.html` - Position showing castling rights
+- `fen-display-simple-endgame.html` - Simple king and queen endgame
+- `fen-display-middlegame.html` - Complex middlegame position
+- `fen-display-many-captures.html` - Position with many captured pieces
 
 ### Using a Different Engine
 
@@ -460,6 +507,46 @@ Generate a complete HTML page with an embedded checkerboard SVG.
 - `light-color` - (optional) CSS color value for light squares (default: `"#eeeed2"`)
 
 **Returns:** Complete HTML document string
+
+#### `fen->html-display`
+
+```clojure
+(fen->html-display fen)
+```
+
+Generate a complete HTML page displaying a chess position from FEN with detailed analysis.
+
+**Parameters:**
+- `fen` - FEN string (full FEN with game state or just piece placement)
+
+**Returns:** Complete HTML document string with responsive layout
+
+Creates an HTML page featuring:
+- SVG chessboard showing the position
+- Position information panel including:
+  - FEN string display
+  - Active color (if provided in FEN)
+  - Castling rights (if provided)
+  - En passant square (if applicable)
+  - Halfmove clock (if provided)
+  - Fullmove number (if provided)
+- Material analysis section:
+  - Total piece count
+  - White and black material values
+  - Material balance with color-coded indicators
+  - Average material value
+- Captured pieces section showing missing pieces for each side
+
+The page uses a responsive two-column layout (side-by-side on desktop, stacked on mobile) with professional styling.
+
+**Example:**
+```clojure
+(fen->html-display "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+;=> Returns complete HTML document
+
+(fen->html-display "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4")
+;=> Returns HTML with position analysis showing material balance, captured pieces, etc.
+```
 
 ## Development
 

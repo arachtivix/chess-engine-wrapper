@@ -128,7 +128,7 @@
   (testing "empty board average value"
     (let [fen "8/8/8/8/8/8/8/8"
           avg (fen->avg-material-value fen)]
-      (is (= 0 avg))))
+      (is (= 0.0 avg))))
   
   (testing "only pawns"
     (let [fen "8/pppppppp/8/8/8/8/PPPPPPPP/8"
@@ -253,3 +253,61 @@
           captured (fen->captured-pieces fen)]
       (is (= {:pawn 8 :knight 2 :bishop 2 :rook 2 :queen 1 :king 1} (:white captured)))
       (is (= {:pawn 8 :knight 2 :bishop 2 :rook 2 :queen 1 :king 1} (:black captured))))))
+
+(deftest test-fen->html-display
+  (testing "generates valid HTML with standard position"
+    (let [fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+          html (fen->html-display fen)]
+      (is (string? html))
+      (is (re-find #"<!DOCTYPE html>" html))
+      (is (re-find #"<svg" html))
+      (is (re-find #"Chess Position" html))
+      (is (re-find #"Active Color" html))
+      (is (re-find #"white" html))
+      (is (re-find #"Material Balance" html))
+      (is (re-find #"Captured Pieces" html))))
+  
+  (testing "displays material balance correctly"
+    (let [fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1 w Qkq - 0 1"
+          html (fen->html-display fen)]
+      (is (re-find #"-5" html))  ; Black ahead by a rook
+      (is (re-find #"behind" html))))
+  
+  (testing "shows captured pieces"
+    (let [fen "rnbqkbn1/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQk - 0 1"
+          html (fen->html-display fen)]
+      (is (re-find #"1 rook" html))))
+  
+  (testing "handles position with just piece placement"
+    (let [fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+          html (fen->html-display fen)]
+      (is (string? html))
+      (is (re-find #"<svg" html))
+      (is (not (re-find #"Active Color" html)))))
+  
+  (testing "displays en passant and castling"
+    (let [fen "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+          html (fen->html-display fen)]
+      (is (re-find #"KQkq" html))
+      (is (re-find #"e3" html))
+      (is (re-find #"black" html))))
+  
+  (testing "shows halfmove clock and fullmove number"
+    (let [fen "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4"
+          html (fen->html-display fen)]
+      (is (re-find #"Halfmove Clock" html))
+      (is (re-find #"Fullmove Number" html))
+      (is (re-find #">4<" html))))
+  
+  (testing "handles empty board"
+    (let [fen "8/8/8/8/8/8/8/8"
+          html (fen->html-display fen)]
+      (is (string? html))
+      (is (re-find #"0" html))))
+  
+  (testing "calculates material correctly for complex position"
+    (let [fen "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4"
+          html (fen->html-display fen)]
+      (is (re-find #"Total Pieces" html))
+      (is (re-find #"White Material" html))
+      (is (re-find #"Black Material" html)))))

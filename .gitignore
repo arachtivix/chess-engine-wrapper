@@ -8,4 +8,5 @@ target/
 pom.xml
 pom.xml.asc
 example*.html
+fen-display*.html
 linux-install.sh

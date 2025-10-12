@@ -1,5 +1,6 @@
 (ns chess-engine-wrapper.display
-  "Chess board display functionality - generate SVG checkerboards with pieces")
+  "Chess board display functionality - generate SVG checkerboards with pieces"
+  (:require [chess-engine-wrapper.core]))
 
 (defn- html-escape
   "Escape HTML special characters."
@@ -236,7 +237,7 @@
   (let [pieces (fen->pieces fen)
         piece-count (count pieces)]
     (if (zero? piece-count)
-      0
+      0.0
       (double (/ (reduce + (map (comp piece->material-value second) pieces))
                  piece-count)))))
 
@@ -341,3 +342,220 @@
                                [piece-type captured]))]
     {:white white-captured
      :black black-captured}))
+
+(defn- parse-fen-info
+  "Parse full FEN string to extract all fields.
+  
+  Parameters:
+  - fen: Full FEN string
+  
+  Returns a map with keys:
+  - :piece-placement - the piece placement part
+  - :active-color - :white or :black
+  - :castling - string of castling availability (e.g., \"KQkq\", \"-\")
+  - :en-passant - en passant target square or \"-\"
+  - :halfmove-clock - number of halfmoves since last capture or pawn move
+  - :fullmove-number - current move number"
+  [fen]
+  (let [parts (clojure.string/split fen #"\s+")
+        [piece-placement active-color castling en-passant halfmove fullmove] parts]
+    {:piece-placement piece-placement
+     :active-color (case active-color
+                     "w" :white
+                     "b" :black
+                     nil)
+     :castling (or castling "-")
+     :en-passant (or en-passant "-")
+     :halfmove-clock (if halfmove (Integer/parseInt halfmove) nil)
+     :fullmove-number (if fullmove (Integer/parseInt fullmove) nil)}))
+
+(defn fen->html-display
+  "Generate a complete HTML page displaying a chess position from FEN with detailed information.
+  
+  Creates an HTML page with:
+  - SVG board showing the position
+  - Side panel with position information (FEN, piece count, material balance, captured pieces, engine evaluation, etc.)
+  
+  Parameters:
+  - fen: FEN string (full FEN with game state or just piece placement)
+  - movetime-ms: (optional) Time limit for engine evaluation in milliseconds (default: 1000)
+  - engine-path: (optional) Path to UCI engine executable (default: \"stockfish\")
+  
+  Returns a complete HTML document string.
+  
+  Example:
+  (fen->html-display \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\")
+  (fen->html-display \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\" 2000)
+  (fen->html-display \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\" 2000 \"/path/to/engine\")"
+  ([fen]
+   (fen->html-display fen 1000))
+  ([fen movetime-ms]
+   (fen->html-display fen movetime-ms "stockfish"))
+  ([fen movetime-ms engine-path]
+   (let [pieces (fen->pieces fen)
+         svg (checkerboard-with-pieces 8 8 :dark pieces)
+         piece-count (count pieces)
+         balance (fen->material-balance fen)
+         captured (fen->captured-pieces fen)
+         fen-info (parse-fen-info fen)
+         
+         ;; Get engine evaluation
+         engine-eval (try
+                       (chess-engine-wrapper.core/get-position-value fen movetime-ms engine-path)
+                       (catch Exception e nil))
+        
+        ;; Helper to format captured pieces
+        format-captured (fn [piece-map]
+                          (if (empty? piece-map)
+                            "None"
+                            (clojure.string/join ", " 
+                              (map (fn [[piece count]]
+                                     (str count " " (name piece) (if (> count 1) "s" "")))
+                                   piece-map))))
+        
+        ;; Calculate material values
+        white-material (reduce + (map (comp piece->material-value second)
+                                      (filter (fn [[_ piece]]
+                                                (#{:white-pawn :white-knight :white-bishop
+                                                   :white-rook :white-queen :white-king} piece))
+                                              pieces)))
+        black-material (reduce + (map (comp piece->material-value second)
+                                      (filter (fn [[_ piece]]
+                                                (#{:black-pawn :black-knight :black-bishop
+                                                   :black-rook :black-queen :black-king} piece))
+                                              pieces)))]
+    (str "<!DOCTYPE html>"
+         "<html>"
+         "<head>"
+         "<meta charset=\"UTF-8\">"
+         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
+         "<title>Chess Position from FEN</title>"
+         "<style>"
+         ".dark-square { fill: #769656; }\n"
+         ".light-square { fill: #eeeed2; }\n"
+         ".chess-piece { font-size: 40px; fill: #000; }\n"
+         "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }\n"
+         ".container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }\n"
+         ".content { display: flex; flex-wrap: wrap; }\n"
+         ".board-section { flex: 1; min-width: 300px; padding: 30px; }\n"
+         ".info-section { flex: 1; min-width: 300px; padding: 30px; background: #fafafa; border-left: 1px solid #e0e0e0; }\n"
+         "h1 { margin: 0 0 20px 0; color: #333; font-size: 24px; }\n"
+         "h2 { margin: 20px 0 10px 0; color: #555; font-size: 18px; border-bottom: 2px solid #769656; padding-bottom: 5px; }\n"
+         ".info-row { margin: 8px 0; display: flex; justify-content: space-between; align-items: baseline; }\n"
+         ".info-label { font-weight: 600; color: #666; }\n"
+         ".info-value { color: #333; font-family: 'Courier New', monospace; }\n"
+         ".fen-display { background: #f0f0f0; padding: 10px; border-radius: 4px; word-break: break-all; font-family: 'Courier New', monospace; font-size: 12px; margin: 10px 0; }\n"
+         ".positive { color: #2e7d32; }\n"
+         ".negative { color: #c62828; }\n"
+         ".neutral { color: #666; }\n"
+         "@media (max-width: 768px) { .content { flex-direction: column; } .info-section { border-left: none; border-top: 1px solid #e0e0e0; } }\n"
+         "</style>"
+         "</head>"
+         "<body>"
+         "<div class=\"container\">"
+         "<div class=\"content\">"
+         
+         ;; Board section
+         "<div class=\"board-section\">"
+         "<h1>Chess Position</h1>"
+         svg
+         "</div>"
+         
+         ;; Info section
+         "<div class=\"info-section\">"
+         "<h2>Position Information</h2>"
+         "<div class=\"fen-display\">" (html-escape fen) "</div>"
+         
+         (when (:active-color fen-info)
+           (str "<div class=\"info-row\">"
+                "<span class=\"info-label\">Active Color:</span>"
+                "<span class=\"info-value\">" (name (:active-color fen-info)) "</span>"
+                "</div>"))
+         
+         (when (and (:castling fen-info) (not= "-" (:castling fen-info)))
+           (str "<div class=\"info-row\">"
+                "<span class=\"info-label\">Castling:</span>"
+                "<span class=\"info-value\">" (html-escape (:castling fen-info)) "</span>"
+                "</div>"))
+         
+         (when (and (:en-passant fen-info) (not= "-" (:en-passant fen-info)))
+           (str "<div class=\"info-row\">"
+                "<span class=\"info-label\">En Passant:</span>"
+                "<span class=\"info-value\">" (html-escape (:en-passant fen-info)) "</span>"
+                "</div>"))
+         
+         (when (:halfmove-clock fen-info)
+           (str "<div class=\"info-row\">"
+                "<span class=\"info-label\">Halfmove Clock:</span>"
+                "<span class=\"info-value\">" (:halfmove-clock fen-info) "</span>"
+                "</div>"))
+         
+         (when (:fullmove-number fen-info)
+           (str "<div class=\"info-row\">"
+                "<span class=\"info-label\">Fullmove Number:</span>"
+                "<span class=\"info-value\">" (:fullmove-number fen-info) "</span>"
+                "</div>"))
+         
+         "<h2>Material Analysis</h2>"
+         "<div class=\"info-row\">"
+         "<span class=\"info-label\">Total Pieces:</span>"
+         "<span class=\"info-value\">" piece-count "</span>"
+         "</div>"
+         
+         "<div class=\"info-row\">"
+         "<span class=\"info-label\">White Material:</span>"
+         "<span class=\"info-value\">" white-material " points</span>"
+         "</div>"
+         
+         "<div class=\"info-row\">"
+         "<span class=\"info-label\">Black Material:</span>"
+         "<span class=\"info-value\">" black-material " points</span>"
+         "</div>"
+         
+         "<div class=\"info-row\">"
+         "<span class=\"info-label\">Material Balance:</span>"
+         "<span class=\"info-value " 
+         (cond
+           (pos? balance) "positive"
+           (neg? balance) "negative"
+           :else "neutral")
+         "\">"
+         (if (pos? balance) "+" "") balance " (White " 
+         (cond
+           (pos? balance) "ahead"
+           (neg? balance) "behind"
+           :else "even")
+         ")</span>"
+         "</div>"
+         
+         (when engine-eval
+           (str "<div class=\"info-row\">"
+                "<span class=\"info-label\">Engine Evaluation:</span>"
+                "<span class=\"info-value " 
+                (cond
+                  (pos? (:score-cp engine-eval)) "positive"
+                  (neg? (:score-cp engine-eval)) "negative"
+                  :else "neutral")
+                "\">"
+                (if (pos? (:score-cp engine-eval)) "+" "") 
+                (format "%.2f" (/ (:score-cp engine-eval) 100.0))
+                " pawns"
+                "</span>"
+                "</div>"))
+         
+         "<h2>Captured Pieces</h2>"
+         "<div class=\"info-row\">"
+         "<span class=\"info-label\">White Captured:</span>"
+         "<span class=\"info-value\">" (format-captured (:white captured)) "</span>"
+         "</div>"
+         
+         "<div class=\"info-row\">"
+         "<span class=\"info-label\">Black Captured:</span>"
+         "<span class=\"info-value\">" (format-captured (:black captured)) "</span>"
+         "</div>"
+         
+         "</div>" ; info-section
+         "</div>" ; content
+         "</div>" ; container
+         "</body>"
+         "</html>"))))

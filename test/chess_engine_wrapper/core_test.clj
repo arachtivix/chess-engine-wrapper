@@ -97,3 +97,73 @@
           result (core/get-position-value start-fen 1000 "stockfish")]
       (is (some? result) "Should return a result")
       (is (number? (:score-cp result)) "Should return a centipawn score"))))
+
+(deftest test-get-next-positions-with-persistent-session
+  (testing "Getting next positions using persistent engine session"
+    (core/with-engine "stockfish"
+      (fn [engine]
+        (let [start-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+              result (core/get-next-positions start-fen engine)]
+          (is (= 20 (count result)) "Starting position should have 20 legal moves")
+          (is (every? string? result) "All results should be strings")
+          (is (every? #(re-matches #"[rnbqkpRNBQKP0-9/]+ [wb] [KQkq-]+ [a-h0-9-]+ \d+ \d+" %) result)
+              "All results should be valid FEN strings"))))))
+
+(deftest test-get-position-value-with-persistent-session
+  (testing "Getting position value using persistent engine session"
+    (core/with-engine "stockfish"
+      (fn [engine]
+        (let [start-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+              result (core/get-position-value start-fen 1000 engine)]
+          (is (some? result) "Should return a result")
+          (is (number? (:score-cp result)) "Should return a centipawn score")
+          (is (string? (:best-move result)) "Should return a best move")
+          (is (re-matches #"[a-h][1-8][a-h][1-8][qrbn]?" (:best-move result))
+              "Best move should be in UCI format"))))))
+
+(deftest test-multiple-operations-with-persistent-session
+  (testing "Performing multiple operations with same engine session"
+    (core/with-engine "stockfish"
+      (fn [engine]
+        ;; First operation - get next positions from start
+        (let [start-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+              positions (core/get-next-positions start-fen engine)]
+          (is (= 20 (count positions)) "Should get 20 positions from start"))
+        
+        ;; Second operation - evaluate a different position
+        (let [after-e4 "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+              eval-result (core/get-position-value after-e4 1000 engine)]
+          (is (some? eval-result) "Should get evaluation for after e4")
+          (is (number? (:score-cp eval-result)) "Should return a score"))
+        
+        ;; Third operation - get next positions from a different position
+        (let [limited-fen "4k3/8/8/8/8/8/8/4K3 w - - 0 1"
+              positions (core/get-next-positions limited-fen engine)]
+          (is (= 5 (count positions)) "King in center should have 5 legal moves"))))))
+
+(deftest test-persistent-session-maintains-performance
+  (testing "Persistent session should maintain engine state efficiently"
+    (let [start-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+          after-e4 "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"]
+      (core/with-engine "stockfish"
+        (fn [engine]
+          ;; Multiple sequential evaluations should work correctly
+          (dotimes [_ 3]
+            (let [result1 (core/get-position-value start-fen 500 engine)
+                  result2 (core/get-position-value after-e4 500 engine)]
+              (is (some? result1) "First evaluation should return result")
+              (is (some? result2) "Second evaluation should return result")
+              (is (number? (:score-cp result1)) "First evaluation should have score")
+              (is (number? (:score-cp result2)) "Second evaluation should have score"))))))))
+
+(deftest test-backward-compatibility-string-path
+  (testing "String path should still work for backward compatibility"
+    (let [start-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]
+      ;; Test get-next-positions with string path
+      (let [positions (core/get-next-positions start-fen "stockfish")]
+        (is (= 20 (count positions)) "Should work with string path"))
+      
+      ;; Test get-position-value with string path
+      (let [result (core/get-position-value start-fen 1000 "stockfish")]
+        (is (some? result) "Should work with string path")
+        (is (number? (:score-cp result)) "Should return score")))))

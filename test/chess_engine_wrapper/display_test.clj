@@ -310,4 +310,41 @@
           html (fen->html-display fen)]
       (is (re-find #"Total Pieces" html))
       (is (re-find #"White Material" html))
-      (is (re-find #"Black Material" html)))))
+      (is (re-find #"Black Material" html))))
+  
+  (testing "component-only mode generates component without full HTML wrapper"
+    (let [fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+          component (fen->html-display fen 1000 "stockfish" true)]
+      (is (string? component))
+      ;; Should NOT have DOCTYPE, html, head, body tags
+      (is (not (re-find #"<!DOCTYPE html>" component)))
+      (is (not (re-find #"<html>" component)))
+      (is (not (re-find #"<head>" component)))
+      (is (not (re-find #"<body>" component)))
+      ;; Should have the component content
+      (is (re-find #"<div class=\"container\">" component))
+      (is (re-find #"Chess Position" component))
+      (is (re-find #"<svg" component))
+      (is (re-find #"Material Balance" component))))
+  
+  (testing "component-only false generates full HTML document"
+    (let [fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+          html (fen->html-display fen 1000 "stockfish" false)]
+      (is (string? html))
+      ;; Should have full HTML structure
+      (is (re-find #"<!DOCTYPE html>" html))
+      (is (re-find #"<html>" html))
+      (is (re-find #"<head>" html))
+      (is (re-find #"<body>" html))
+      (is (re-find #"</body>" html))
+      (is (re-find #"</html>" html))
+      ;; Should also have the component content
+      (is (re-find #"<div class=\"container\">" html))
+      (is (re-find #"Chess Position" html))))
+  
+  (testing "default behavior (no component-only param) generates full HTML"
+    (let [fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+          html (fen->html-display fen)]
+      ;; Should have full HTML structure by default
+      (is (re-find #"<!DOCTYPE html>" html))
+      (is (re-find #"<html>" html)))))

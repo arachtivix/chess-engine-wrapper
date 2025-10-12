@@ -40,23 +40,36 @@
   
   Parameters:
   - fen: A position in FEN notation
-  - engine-path: (optional) Path to UCI engine executable (defaults to 'stockfish')
+  - engine-or-path: Either an initialized engine instance (map with :process, :in, :out) 
+                    or a path to UCI engine executable (string, defaults to 'stockfish')
   
   Returns:
-  A vector of FEN strings representing all positions reachable by one legal move."
+  A vector of FEN strings representing all positions reachable by one legal move.
+  
+  When passed an engine instance, the engine session is maintained and can be reused.
+  When passed a string path, creates an ephemeral engine session."
   ([fen]
    (get-next-positions fen *default-engine-path*))
-  ([fen engine-path]
-   (let [engine (-> (uci/start-engine engine-path)
-                    (uci/init-engine))]
-     (try
-       (uci/set-position engine fen)
-       (let [moves (uci/get-legal-moves engine)]
+  ([fen engine-or-path]
+   (if (map? engine-or-path)
+     ;; engine-or-path is an engine instance - use it directly without stopping
+     (do
+       (uci/set-position engine-or-path fen)
+       (let [moves (uci/get-legal-moves engine-or-path)]
          (vec (keep (fn [move]
-                      (apply-move-to-fen engine fen move))
-                    moves)))
-       (finally
-         (uci/stop-engine engine))))))
+                      (apply-move-to-fen engine-or-path fen move))
+                    moves))))
+     ;; engine-or-path is a string path - create ephemeral session
+     (let [engine (-> (uci/start-engine engine-or-path)
+                      (uci/init-engine))]
+       (try
+         (uci/set-position engine fen)
+         (let [moves (uci/get-legal-moves engine)]
+           (vec (keep (fn [move]
+                        (apply-move-to-fen engine fen move))
+                      moves)))
+         (finally
+           (uci/stop-engine engine)))))))
 
 (defn get-position-value
   "Get the evaluation of a chess position given in FEN notation.
@@ -64,22 +77,32 @@
   Parameters:
   - fen: A chess position in FEN notation
   - movetime-ms: Time limit for computation in milliseconds
-  - engine-path: (optional) Path to UCI engine executable (defaults to 'stockfish')
+  - engine-or-path: (optional) Either an initialized engine instance (map with :process, :in, :out)
+                    or a path to UCI engine executable (string, defaults to 'stockfish')
   
   Returns:
   A map with :score-cp (centipawn score from white's perspective) and :best-move.
   A positive score favors white, negative favors black.
-  Returns nil if no evaluation is available."
+  Returns nil if no evaluation is available.
+  
+  When passed an engine instance, the engine session is maintained and can be reused.
+  When passed a string path, creates an ephemeral engine session."
   ([fen movetime-ms]
    (get-position-value fen movetime-ms *default-engine-path*))
-  ([fen movetime-ms engine-path]
-   (let [engine (-> (uci/start-engine engine-path)
-                    (uci/init-engine))]
-     (try
-       (uci/set-position engine fen)
-       (uci/get-position-value engine movetime-ms)
-       (finally
-         (uci/stop-engine engine))))))
+  ([fen movetime-ms engine-or-path]
+   (if (map? engine-or-path)
+     ;; engine-or-path is an engine instance - use it directly without stopping
+     (do
+       (uci/set-position engine-or-path fen)
+       (uci/get-position-value engine-or-path movetime-ms))
+     ;; engine-or-path is a string path - create ephemeral session
+     (let [engine (-> (uci/start-engine engine-or-path)
+                      (uci/init-engine))]
+       (try
+         (uci/set-position engine fen)
+         (uci/get-position-value engine movetime-ms)
+         (finally
+           (uci/stop-engine engine)))))))
 
 (defn with-engine
   "Execute a function with an initialized engine. The function receives the engine as argument.

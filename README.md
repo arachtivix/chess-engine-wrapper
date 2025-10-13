@@ -686,12 +686,17 @@ clojure -T:build get-version
 
 Releases are automated via GitHub Actions. When code is pushed to the `main` branch:
 1. Tests are run
-2. If tests pass, the patch version is automatically incremented
-3. A JAR is built
-4. A GitHub release is created with:
-   - A git tag for easy dependency resolution
-   - The JAR as a downloadable artifact (for manual installation)
-   - Installation instructions for both git-based and JAR-based approaches
+2. If tests pass, the workflow checks for code changes since the last release
+3. If code changes are detected (in `src/`, `test/`, `deps.edn`, or `build.clj`):
+   - The patch version is automatically incremented
+   - A JAR is built
+   - A GitHub release is created with:
+     - A git tag for easy dependency resolution
+     - The JAR as a downloadable artifact (for manual installation)
+     - Installation instructions for both git-based and JAR-based approaches
+4. If no code changes are detected, the release is skipped
+
+This ensures releases are only created when there are actual code changes, avoiding unnecessary version bumps for documentation-only updates.
 
 
 ## FEN Notation

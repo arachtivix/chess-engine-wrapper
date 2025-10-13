@@ -50,12 +50,33 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check for code changes
+        id: check_changes
+        run: |
+          # Get the latest tag, or use the first commit if no tags exist
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)
+          echo "Latest tag or initial commit: $LATEST_TAG"
+          
+          # Check for changes in source code, tests, and build files since the last tag
+          CODE_CHANGES=$(git diff --name-only $LATEST_TAG HEAD | grep -E '^(src/|test/|deps\.edn|build\.clj)' || true)
+          
+          if [ -z "$CODE_CHANGES" ]; then
+            echo "No code changes detected since last release"
+            echo "has_code_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Code changes detected:"
+            echo "$CODE_CHANGES"
+            echo "has_code_changes=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install Clojure
+        if: steps.check_changes.outputs.has_code_changes == 'true'
         uses: DeLaGuardo/setup-clojure@12.5
         with:
           cli: 1.11.1.1429
 
       - name: Cache Clojure dependencies
+        if: steps.check_changes.outputs.has_code_changes == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -66,6 +87,7 @@ jobs:
             ${{ runner.os }}-clojure-
 
       - name: Increment version
+        if: steps.check_changes.outputs.has_code_changes == 'true'
         id: version
         run: |
           clojure -T:build increment-patch
@@ -74,9 +96,11 @@ jobs:
           echo "Version: $VERSION"
 
       - name: Build JAR
+        if: steps.check_changes.outputs.has_code_changes == 'true'
         run: clojure -T:build jar
 
       - name: Commit version bump
+        if: steps.check_changes.outputs.has_code_changes == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email \
@@ -87,6 +111,7 @@ jobs:
           git push || echo "No changes to push"
 
       - name: Get commit SHA
+        if: steps.check_changes.outputs.has_code_changes == 'true'
         id: sha
         run: |
           SHA=$(git rev-parse HEAD)
@@ -95,6 +120,7 @@ jobs:
           echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
 
       - name: Create Release
+        if: steps.check_changes.outputs.has_code_changes == 'true'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.version.outputs.version }}
